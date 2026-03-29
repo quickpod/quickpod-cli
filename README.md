@@ -53,6 +53,32 @@ Log in interactively:
 ./quickpod auth login --email you@example.com
 ```
 
+If the account has two-factor enabled, the CLI completes the login challenge as well:
+
+```bash
+./quickpod auth login --email you@example.com --two-factor-code 123456
+```
+
+For email-based 2FA, the first login call triggers the email challenge and then prompts for the code.
+For TOTP-based 2FA, the CLI prompts immediately unless `--two-factor-code` is provided.
+
+Google OAuth login:
+
+```bash
+./quickpod auth google --print-auth-url --client-id YOUR_GOOGLE_CLIENT_ID --redirect-uri https://your.app/callback
+./quickpod auth google --code YOUR_CODE --redirect-uri https://your.app/callback
+```
+
+GitHub OAuth login:
+
+```bash
+./quickpod auth github --print-auth-url --client-id YOUR_GITHUB_CLIENT_ID --redirect-uri https://your.app/callback
+./quickpod auth github --code YOUR_CODE --redirect-uri https://your.app/callback
+```
+
+If the OAuth identity does not exist yet, the CLI handles the backend `signup_required` flow and prompts for `user` or `host` when needed.
+OAuth login also supports the same two-factor challenge flow as password login.
+
 Store an existing token:
 
 ```bash
