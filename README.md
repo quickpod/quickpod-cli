@@ -1,1 +1,221 @@
 # quickpod-cli
+
+Go CLI for the user-facing QuickPod GPU and CPU platform APIs.
+
+Scope:
+- Uses only `quickpod-api` read-only routes and user-safe `quickpod-update-api` routes.
+- Excludes admin-only endpoints.
+- Focuses on discovery, pods, templates, machines, storage volumes, account workflows, host stores, and 2FA.
+
+Base API:
+- Default base URL: `https://api.quickpod.org`
+
+## Features
+
+- Search rentable or occupied GPU and CPU offers
+- Inspect public catalog data like GPU types, pricing, distribution, locations, and host stores
+- Log in, sign up, store tokens locally, and inspect the authenticated profile
+- List, create, reset, rename, start, stop, restart, destroy, and inspect pods
+- List and manage templates, including community toggles
+- List machines, inspect contracts, and update host listing settings
+- List storage servers and manage user volumes
+- View account metrics, transactions, affiliations, audit history, and host earnings
+- Manage 2FA with email or TOTP flows
+
+## Build
+
+```bash
+go mod tidy
+go build -o quickpod
+```
+
+## Authentication
+
+The CLI stores its token in:
+
+```text
+~/.config/quickpod-cli/config.json
+```
+
+You can also override runtime settings with environment variables:
+
+```bash
+export QUICKPOD_BASE_URL=https://api.quickpod.org
+export QUICKPOD_TOKEN=...
+export QUICKPOD_OUTPUT=json
+```
+
+## Quick Start
+
+Log in interactively:
+
+```bash
+./quickpod auth login --email you@example.com
+```
+
+Store an existing token:
+
+```bash
+./quickpod auth set-token --value "$QUICKPOD_TOKEN"
+```
+
+Check your profile:
+
+```bash
+./quickpod auth me
+```
+
+Search GPU offers:
+
+```bash
+./quickpod search gpu --type A100 --max-hourly 2.5 --verified-only
+```
+
+Search CPU offers:
+
+```bash
+./quickpod search cpu --max-hourly 0.25 --min-count 8
+```
+
+List your pods:
+
+```bash
+./quickpod pods list --kind gpu
+./quickpod pods list --kind cpu
+```
+
+Create a GPU pod:
+
+```bash
+./quickpod pods create \
+	--kind gpu \
+	--template TEMPLATE_UUID \
+	--offer 12345 \
+	--disk 50 \
+	--name trainer
+```
+
+Create a CPU job:
+
+```bash
+./quickpod pods create \
+	--kind cpu \
+	--job \
+	--template TEMPLATE_UUID \
+	--offer 12345 \
+	--disk 20
+```
+
+Start or stop a pod:
+
+```bash
+./quickpod pods stop --kind gpu --pod POD_UUID
+./quickpod pods start --kind gpu --pod POD_UUID
+```
+
+List public templates:
+
+```bash
+./quickpod templates list --scope public --kind gpu
+./quickpod templates list --scope community --kind cpu
+```
+
+Save a template from flags:
+
+```bash
+./quickpod templates save \
+	--kind gpu \
+	--name my-template \
+	--image-path ghcr.io/acme/image:latest \
+	--disk-space 30 \
+	--public=false
+```
+
+Save a template from JSON:
+
+```bash
+./quickpod templates save --file ./template.json
+```
+
+List your machines and contracts:
+
+```bash
+./quickpod machines list --kind gpu
+./quickpod machines contracts
+```
+
+Update a GPU machine listing:
+
+```bash
+./quickpod machines update-gpu \
+	--machine-id 14717 \
+	--listed true \
+	--min-gpu 1 \
+	--max-duration 24 \
+	--storage-cost 0.05 \
+	--inet-down-cost 0.00 \
+	--gpu-price 101=0.79 \
+	--gpu-price 102=0.79
+```
+
+List storage servers and volumes:
+
+```bash
+./quickpod storage servers
+./quickpod storage volumes list
+```
+
+Create a storage volume:
+
+```bash
+./quickpod storage volumes create \
+	--server-id 4 \
+	--name datasets \
+	--size-gb 250 \
+	--allowed-host 10.0.0.10
+```
+
+2FA flows:
+
+```bash
+./quickpod security 2fa-status
+./quickpod security enable-email-2fa
+./quickpod security setup-totp
+./quickpod security enable-totp --code 123456
+./quickpod security disable-2fa
+```
+
+## Output Formats
+
+Default output is table-oriented for interactive use.
+
+Switch to JSON per command:
+
+```bash
+./quickpod --output json pods list --kind gpu
+```
+
+Or globally:
+
+```bash
+export QUICKPOD_OUTPUT=json
+```
+
+## Command Groups
+
+- `auth`: login, signup, me, logout, token handling
+- `search`: rentable and occupied GPU or CPU offers
+- `catalog`: public types, pricing, distribution, locations, host stores
+- `pods`: list, history, create, reset, lifecycle, rename
+- `templates`: list, save, delete, community flag
+- `machines`: list, contracts, listing updates, privileged access
+- `storage`: servers and user volumes
+- `account`: metrics, history, contact, email check, API key reset, reverify email
+- `security`: 2FA status and setup
+- `store`: host store listing and upsert
+
+## Notes
+
+- `storage_servers` create and update operations are intentionally not exposed because the API handlers are admin-only.
+- Webhooks, background backend helpers, and other infrastructure-only routes are intentionally excluded.
+- Some endpoints return large JSON payloads; use `--output json` when you need the full response.
