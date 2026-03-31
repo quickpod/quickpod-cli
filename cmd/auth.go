@@ -483,7 +483,7 @@ func newAuthMeCmd() *cobra.Command {
 func newAuthLogoutCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "logout",
-		Short: "Remove the locally stored auth token",
+		Short: "Remove the locally stored auth credential",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			runtimeConfig.Token = ""
 			if err := saveRuntimeConfig(); err != nil {
@@ -499,7 +499,7 @@ func newAuthLogoutCmd() *cobra.Command {
 func newAuthTokenCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "token",
-		Short: "Print the active auth token",
+		Short: "Print the active auth credential",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireAuth(); err != nil {
 				return err
@@ -517,12 +517,13 @@ func newAuthTokenCmd() *cobra.Command {
 func newAuthSetTokenCmd() *cobra.Command {
 	var token string
 	cmd := &cobra.Command{
-		Use:   "set-token",
-		Short: "Store an existing auth token without logging in",
+		Use:     "set-token",
+		Aliases: []string{"set-api-key", "set-credential"},
+		Short:   "Store an existing auth token or secure API key without logging in",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if strings.TrimSpace(token) == "" {
 				reader := bufio.NewReader(os.Stdin)
-				fmt.Fprint(os.Stdout, "Token: ")
+				fmt.Fprint(os.Stdout, "Token or API key: ")
 				value, err := reader.ReadString('\n')
 				if err != nil {
 					return err
@@ -530,17 +531,17 @@ func newAuthSetTokenCmd() *cobra.Command {
 				token = strings.TrimSpace(value)
 			}
 			if strings.TrimSpace(token) == "" {
-				return fmt.Errorf("token is required")
+				return fmt.Errorf("token or API key is required")
 			}
 			runtimeConfig.Token = strings.TrimSpace(token)
 			if err := saveRuntimeConfig(); err != nil {
 				return err
 			}
 			apiClient.SetToken(runtimeConfig.Token)
-			return renderTableOrJSON(map[string]string{"status": "token stored"}, []string{"KEY", "VALUE"}, [][]string{{"status", "token stored"}})
+			return renderTableOrJSON(map[string]string{"status": "credential stored"}, []string{"KEY", "VALUE"}, [][]string{{"status", "credential stored"}})
 		},
 	}
-	cmd.Flags().StringVar(&token, "value", "", "auth token to store")
+	cmd.Flags().StringVar(&token, "value", "", "auth token or secure API key to store")
 	return cmd
 }
 

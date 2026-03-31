@@ -3,6 +3,8 @@ package app
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +17,27 @@ type Config struct {
 	Token   string `json:"token"`
 	Output  string `json:"output"`
 }
+
+func NormalizeBaseURL(raw string) (string, error) {
+	trimmed := strings.TrimRight(strings.TrimSpace(raw), "/")
+	if trimmed == "" {
+		return DefaultBaseURL, nil
+	}
+	if !strings.Contains(trimmed, "://") {
+		trimmed = "https://" + trimmed
+	}
+	parsed, err := url.Parse(trimmed)
+	if err != nil {
+		return "", err
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return "", fmt.Errorf("unsupported base URL scheme %q", parsed.Scheme)
+	}
+	if strings.TrimSpace(parsed.Host) == "" {
+		return "", fmt.Errorf("base URL must include a host")
+	}
+	return strings.TrimRight(parsed.String(), "/"), nil
+	}
 
 func DefaultConfig() Config {
 	return Config{
@@ -53,9 +76,11 @@ func LoadConfig(path string) (Config, error) {
 		return Config{}, err
 	}
 
-	if strings.TrimSpace(config.BaseURL) == "" {
-		config.BaseURL = DefaultBaseURL
+	normalizedBaseURL, err := NormalizeBaseURL(config.BaseURL)
+	if err != nil {
+		return Config{}, err
 	}
+	config.BaseURL = normalizedBaseURL
 	if strings.TrimSpace(config.Output) == "" {
 		config.Output = "table"
 	}
@@ -67,9 +92,11 @@ func SaveConfig(path string, config Config) error {
 	if strings.TrimSpace(path) == "" {
 		return errors.New("config path is empty")
 	}
-	if strings.TrimSpace(config.BaseURL) == "" {
-		config.BaseURL = DefaultBaseURL
+	normalizedBaseURL, err := NormalizeBaseURL(config.BaseURL)
+	if err != nil {
+		return err
 	}
+	config.BaseURL = normalizedBaseURL
 	if strings.TrimSpace(config.Output) == "" {
 		config.Output = "table"
 	}

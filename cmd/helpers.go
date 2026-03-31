@@ -14,7 +14,7 @@ import (
 
 func requireAuth() error {
 	if strings.TrimSpace(runtimeConfig.Token) == "" {
-		return errors.New("no auth token configured; run 'quickpod auth login' or set QUICKPOD_TOKEN")
+		return errors.New("no auth credential configured; run 'quickpod auth login', use 'quickpod auth set-token', or set QUICKPOD_TOKEN/QUICKPOD_API_KEY")
 	}
 	return nil
 }

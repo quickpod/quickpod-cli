@@ -31,19 +31,26 @@ go build -o quickpod
 
 ## Authentication
 
-The CLI stores its token in:
+The CLI stores its auth credential in:
 
 ```text
 ~/.config/quickpod-cli/config.json
 ```
+
+That credential can be either:
+- A bearer token returned by `quickpod auth login`
+- A secure API key beginning with `qpk_`
 
 You can also override runtime settings with environment variables:
 
 ```bash
 export QUICKPOD_BASE_URL=https://api.quickpod.org
 export QUICKPOD_TOKEN=...
+export QUICKPOD_API_KEY=qpk_...
 export QUICKPOD_OUTPUT=json
 ```
+
+If both `QUICKPOD_TOKEN` and `QUICKPOD_API_KEY` are set, the API key wins.
 
 ## Quick Start
 
@@ -79,16 +86,37 @@ GitHub OAuth login:
 If the OAuth identity does not exist yet, the CLI handles the backend `signup_required` flow and prompts for `user` or `host` when needed.
 OAuth login also supports the same two-factor challenge flow as password login.
 
-Store an existing token:
+Store an existing bearer token:
 
 ```bash
 ./quickpod auth set-token --value "$QUICKPOD_TOKEN"
+```
+
+Store an existing secure API key:
+
+```bash
+./quickpod auth set-api-key --value "$QUICKPOD_API_KEY"
+```
+
+You can also pass a credential per invocation:
+
+```bash
+./quickpod --token "$QUICKPOD_TOKEN" auth me
+./quickpod --api-key "$QUICKPOD_API_KEY" auth me
 ```
 
 Check your profile:
 
 ```bash
 ./quickpod auth me
+```
+
+Use a secure API key against mixed-auth read-only routes:
+
+```bash
+./quickpod --api-key "$QUICKPOD_API_KEY" auth me
+./quickpod --api-key "$QUICKPOD_API_KEY" pods list --kind gpu
+./quickpod --api-key "$QUICKPOD_API_KEY" templates list --scope my --kind gpu
 ```
 
 Search GPU offers:
@@ -229,7 +257,7 @@ export QUICKPOD_OUTPUT=json
 
 ## Command Groups
 
-- `auth`: login, signup, me, logout, token handling
+- `auth`: login, signup, me, logout, token or API-key handling
 - `search`: rentable and occupied GPU or CPU offers
 - `catalog`: public types, pricing, distribution, locations, host stores
 - `pods`: list, history, create, reset, lifecycle, rename
@@ -245,3 +273,4 @@ export QUICKPOD_OUTPUT=json
 - `storage_servers` create and update operations are intentionally not exposed because the API handlers are admin-only.
 - Webhooks, background backend helpers, and other infrastructure-only routes are intentionally excluded.
 - Some endpoints return large JSON payloads; use `--output json` when you need the full response.
+- When a stored credential starts with `qpk_`, the CLI automatically sends it as `X-API-Key` and `Authorization: ApiKey ...`; all other credentials are sent as bearer tokens.

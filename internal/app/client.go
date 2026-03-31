@@ -36,14 +36,18 @@ type Client struct {
 	HTTP    *http.Client
 }
 
+func IsAPIKeyCredential(value string) bool {
+	return strings.HasPrefix(strings.TrimSpace(value), "qpk_")
+}
+
 func NewClient(baseURL, token string) *Client {
-	trimmedBaseURL := strings.TrimRight(strings.TrimSpace(baseURL), "/")
-	if trimmedBaseURL == "" {
-		trimmedBaseURL = DefaultBaseURL
+	normalizedBaseURL, err := NormalizeBaseURL(baseURL)
+	if err != nil {
+		normalizedBaseURL = DefaultBaseURL
 	}
 
 	return &Client{
-		BaseURL: trimmedBaseURL,
+		BaseURL: normalizedBaseURL,
 		Token:   strings.TrimSpace(token),
 		HTTP: &http.Client{
 			Timeout: 60 * time.Second,
@@ -101,9 +105,14 @@ func (c *Client) do(ctx context.Context, method, path string, query url.Values, 
 	}
 	if auth {
 		if c.Token == "" {
-			return fmt.Errorf("authentication required; run 'quickpod auth login' or set QUICKPOD_TOKEN")
+			return fmt.Errorf("authentication required; run 'quickpod auth login', store a credential with 'quickpod auth set-token', or set QUICKPOD_TOKEN/QUICKPOD_API_KEY")
 		}
-		req.Header.Set("Authorization", "Bearer "+c.Token)
+		if IsAPIKeyCredential(c.Token) {
+			req.Header.Set("X-API-Key", c.Token)
+			req.Header.Set("Authorization", "ApiKey "+c.Token)
+		} else {
+			req.Header.Set("Authorization", "Bearer "+c.Token)
+		}
 	}
 
 	resp, err := c.HTTP.Do(req)

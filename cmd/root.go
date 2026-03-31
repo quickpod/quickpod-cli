@@ -14,6 +14,7 @@ var (
 	configPath      string
 	baseURLOverride string
 	tokenOverride   string
+	apiKeyOverride  string
 	outputOverride  string
 
 	runtimeConfig app.Config
@@ -48,7 +49,8 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", defaultConfigPath, "config file path")
 	rootCmd.PersistentFlags().StringVar(&baseURLOverride, "base-url", "", "override the QuickPod API base URL")
-	rootCmd.PersistentFlags().StringVar(&tokenOverride, "token", "", "override the stored auth token for this invocation")
+	rootCmd.PersistentFlags().StringVar(&tokenOverride, "token", "", "override the stored auth token or API key for this invocation")
+	rootCmd.PersistentFlags().StringVar(&apiKeyOverride, "api-key", "", "override the stored secure API key for this invocation")
 	rootCmd.PersistentFlags().StringVarP(&outputOverride, "output", "o", "", "output format: table or json")
 
 	rootCmd.AddCommand(newAuthCmd())
@@ -83,6 +85,9 @@ func initRuntime() error {
 	if envToken := strings.TrimSpace(os.Getenv("QUICKPOD_TOKEN")); envToken != "" {
 		config.Token = envToken
 	}
+	if envAPIKey := strings.TrimSpace(os.Getenv("QUICKPOD_API_KEY")); envAPIKey != "" {
+		config.Token = envAPIKey
+	}
 	if envOutput := strings.TrimSpace(os.Getenv("QUICKPOD_OUTPUT")); envOutput != "" {
 		config.Output = envOutput
 	}
@@ -93,14 +98,18 @@ func initRuntime() error {
 	if strings.TrimSpace(tokenOverride) != "" {
 		config.Token = tokenOverride
 	}
+	if strings.TrimSpace(apiKeyOverride) != "" {
+		config.Token = apiKeyOverride
+	}
 	if strings.TrimSpace(outputOverride) != "" {
 		config.Output = outputOverride
 	}
 
-	config.BaseURL = strings.TrimRight(strings.TrimSpace(config.BaseURL), "/")
-	if config.BaseURL == "" {
-		config.BaseURL = app.DefaultBaseURL
+	normalizedBaseURL, err := app.NormalizeBaseURL(config.BaseURL)
+	if err != nil {
+		return err
 	}
+	config.BaseURL = normalizedBaseURL
 	config.Output = strings.ToLower(strings.TrimSpace(config.Output))
 	if config.Output == "" {
 		config.Output = "table"
