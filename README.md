@@ -31,6 +31,68 @@ go mod tidy
 go build -o quickpod
 ```
 
+## GitHub Releases
+
+The repository is set up to publish release binaries to GitHub Releases.
+
+One-line installer for the latest release:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/quickpod/quickpod-cli/main/install.sh | sh
+```
+
+If you run the installer from a local checkout before the first GitHub release exists, it falls back to building from source with `go build` and installs that binary instead.
+
+If the GitHub repository or release assets are private, pass a token with repo access:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/quickpod/quickpod-cli/main/install.sh | GITHUB_TOKEN=YOUR_TOKEN sh
+```
+
+Install a specific version:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/quickpod/quickpod-cli/main/install.sh | VERSION=v0.1.0 sh
+```
+
+Install into a custom directory:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/quickpod/quickpod-cli/main/install.sh | INSTALL_DIR=$HOME/.local/bin sh
+```
+
+Dry-run the installer to inspect the resolved asset URL:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/quickpod/quickpod-cli/main/install.sh | VERSION=v0.1.0 DRY_RUN=1 sh
+```
+
+Release process:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+That tag triggers the GitHub Actions release workflow, which builds and attaches archives for:
+- Linux amd64
+- Linux arm64
+- macOS amd64
+- macOS arm64
+- Windows amd64
+
+Each release includes SHA256 checksum files alongside the archives.
+
+Download and install the latest Linux amd64 release example:
+
+```bash
+VERSION=v0.1.0
+curl -L -o quickpod-cli.tar.gz "https://github.com/quickpod/quickpod-cli/releases/download/${VERSION}/quickpod-cli_${VERSION#v}_linux_amd64.tar.gz"
+tar -xzf quickpod-cli.tar.gz
+chmod +x quickpod-cli
+sudo mv quickpod-cli /usr/local/bin/quickpod-cli
+```
+
 Version scheme:
 - Tagged or release builds should use semantic versions such as `v0.1.0`, `v0.1.1`, `v0.2.0`.
 - Local untagged builds default to `v0.1.0-dev+<commit>` and append `.dirty` when built from a modified worktree.
