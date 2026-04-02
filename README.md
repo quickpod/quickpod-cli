@@ -4,8 +4,8 @@ Go CLI for the user-facing QuickPod GPU and CPU platform APIs.
 
 Scope:
 - Uses only `quickpod-api` read-only routes and user-safe `quickpod-update-api` routes.
-- Excludes admin-only endpoints.
-- Focuses on discovery, pods, templates, machines, storage volumes, account workflows, host stores, and 2FA.
+- Excludes internal operational endpoints such as ad hoc pod lifecycle routes and machine reset routes.
+- Focuses on discovery, pods, pod clusters, serverless endpoints, templates, machines, storage volumes, account workflows, host stores, and 2FA.
 
 Base API:
 - Default base URL: `https://api.quickpod.org`
@@ -15,10 +15,12 @@ Base API:
 - Search rentable or occupied GPU and CPU offers
 - Inspect public catalog data like GPU types, pricing, distribution, locations, and host stores
 - Log in, sign up, store tokens locally, and inspect the authenticated profile
-- List, create, reset, rename, start, stop, restart, destroy, and inspect pods
+- List, create, reset, rename, start, stop, restart, destroy, and inspect pods, with `get` and `--wide` views
+- List, create, scale, inspect, and operate pod clusters and cluster services
+- List, create, inspect, update, delete, and tail logs for serverless endpoints
 - List and manage templates, including community toggles
-- List machines, inspect contracts, and update host listing settings
-- List storage servers and manage user volumes
+- List machines, inspect contracts, update host listing settings, and use `get` and `--wide` views
+- List storage servers, inspect one server, and manage user volumes with `--wide` views
 - View account metrics, transactions, affiliations, audit history, and host earnings
 - Manage 2FA with email or TOTP flows
 
@@ -123,6 +125,7 @@ Search GPU offers:
 
 ```bash
 ./quickpod search gpu --type A100 --max-hourly 2.5 --verified-only
+./quickpod search gpu --sort reliability --desc --limit 10
 ```
 
 Search CPU offers:
@@ -136,6 +139,9 @@ List your pods:
 ```bash
 ./quickpod pods list --kind gpu
 ./quickpod pods list --kind cpu
+./quickpod pods get --kind gpu --pod POD_UUID
+./quickpod pods list --kind gpu --wide
+./quickpod pods logs --kind gpu --pod POD_UUID
 ```
 
 Create a GPU pod:
@@ -195,7 +201,27 @@ List your machines and contracts:
 
 ```bash
 ./quickpod machines list --kind gpu
+./quickpod machines get --kind gpu --id 14717
 ./quickpod machines contracts
+```
+
+Work with pod clusters:
+
+```bash
+./quickpod clusters list
+./quickpod clusters get --id 12
+./quickpod clusters create --file ./cluster.json
+./quickpod clusters scale --id 12 --replicas 4 --offer-id 101 --offer-id 102
+./quickpod clusters services list --cluster-id 12
+```
+
+Work with serverless endpoints:
+
+```bash
+./quickpod serverless list
+./quickpod serverless get --id 9
+./quickpod serverless create --file ./endpoint.json
+./quickpod serverless logs --id 9 --limit 25
 ```
 
 Update a GPU machine listing:
@@ -216,7 +242,18 @@ List storage servers and volumes:
 
 ```bash
 ./quickpod storage servers
+./quickpod storage servers get --id 4
 ./quickpod storage volumes list
+./quickpod storage volumes list --wide
+./quickpod storage volumes get --id 42
+```
+
+Inspect referral activity and account history:
+
+```bash
+./quickpod account affiliations
+./quickpod account transactions
+./quickpod account audit-log
 ```
 
 Create a storage volume:
@@ -242,6 +279,7 @@ Create a storage volume:
 ## Output Formats
 
 Default output is table-oriented for interactive use.
+Most table commands now include operational identifiers like machine IDs, offer IDs, access ranges, service IDs, and qualification state where those fields are available from the APIs.
 
 Switch to JSON per command:
 
@@ -270,7 +308,6 @@ export QUICKPOD_OUTPUT=json
 
 ## Notes
 
-- `storage_servers` create and update operations are intentionally not exposed because the API handlers are admin-only.
 - Webhooks, background backend helpers, and other infrastructure-only routes are intentionally excluded.
 - Some endpoints return large JSON payloads; use `--output json` when you need the full response.
 - When a stored credential starts with `qpk_`, the CLI automatically sends it as `X-API-Key` and `Authorization: ApiKey ...`; all other credentials are sent as bearer tokens.

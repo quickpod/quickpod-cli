@@ -27,9 +27,14 @@ var rootCmd = &cobra.Command{
 	Long: `QuickPod is a Go CLI for the public and user-facing QuickPod GPU and CPU platform APIs.
 
 It covers machine discovery, pods, templates, user account workflows, host machine listing,
-user storage volumes, host store metadata, and user security operations.
-
-Admin-only endpoints are intentionally excluded.`,
+user storage volumes, host store metadata, and user security operations.`,
+	Example: `  quickpod auth login --email you@example.com
+	quickpod search gpu --type A100 --max-hourly 2.5 --limit 10
+	quickpod pods list --kind gpu
+	quickpod templates list --scope my --kind gpu
+	quickpod machines list --kind gpu
+	quickpod storage volumes list
+	quickpod account affiliations`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		return initRuntime()
 	},
@@ -57,6 +62,8 @@ func init() {
 	rootCmd.AddCommand(newSearchCmd())
 	rootCmd.AddCommand(newCatalogCmd())
 	rootCmd.AddCommand(newPodsCmd())
+	rootCmd.AddCommand(newClustersCmd())
+	rootCmd.AddCommand(newServerlessCmd())
 	rootCmd.AddCommand(newTemplatesCmd())
 	rootCmd.AddCommand(newMachinesCmd())
 	rootCmd.AddCommand(newStorageCmd())

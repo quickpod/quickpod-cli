@@ -9,8 +9,9 @@ import (
 
 func newSearchCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "search",
-		Short: "Search rentable or occupied GPU and CPU offers",
+		Use:     "search",
+		Short:   "Search rentable or occupied GPU and CPU offers",
+		Example: "  quickpod search gpu --type A100 --max-hourly 3 --verified-only\n  quickpod search cpu --min-count 8 --max-hourly 0.50 --sort cpus --desc\n  quickpod search gpu --occupied --location frankfurt --limit 15",
 	}
 
 	cmd.AddCommand(newSearchKindCmd("gpu"))
@@ -56,7 +57,7 @@ func newSearchKindCmd(kind string) *cobra.Command {
 			items = filterOffers(items, kind, typeFilter, location, minHourly, maxHourly, minCount, maxCount, minReliability, verifiedOnly)
 			sortMaps(items, sortBy, desc)
 
-			return renderTableOrJSON(items, []string{"ID", "OFFER", "TYPE", "COUNT", "HOURLY", "RELIABILITY", "VERIFIED", "LOCATION"}, offerRows(items, kind, limit))
+			return renderTableOrJSON(items, []string{"ID", "OFFER", "TYPE", "COUNT", "HOURLY", "RELIABILITY", "VERIFIED", "MACHINE", "PORTS", "LOCATION"}, offerRows(items, kind, limit))
 		},
 	}
 

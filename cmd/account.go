@@ -12,8 +12,9 @@ import (
 
 func newAccountCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "account",
-		Short: "Inspect account metrics and run user account operations",
+		Use:     "account",
+		Short:   "Inspect account metrics and run user account operations",
+		Example: "  quickpod account transactions\n  quickpod account affiliations\n  quickpod account audit-log --output json",
 	}
 
 	cmd.AddCommand(newPublicAccountGetCmd("indicators", "/key_indicators", []string{"METRIC", "VALUE"}))
@@ -21,8 +22,8 @@ func newAccountCmd() *cobra.Command {
 	cmd.AddCommand(newPublicAccountListCmd("monthly-spending", "/monthly_spending", []string{"MONTH", "AMOUNT"}, "yearmonth", "amount"))
 	cmd.AddCommand(newPublicAccountListCmd("monthly-payouts", "/monthly_payouts", []string{"MONTH", "AMOUNT"}, "yearmonth", "amount"))
 	cmd.AddCommand(newPublicAccountListCmd("billing-rate-history", "/billing_rate_history", []string{"TIMESTAMP", "BILLING_RATE"}, "timestamp", "billing_rate"))
-	cmd.AddCommand(newAuthedAccountListCmd("transactions", "/update/transactions", []string{"ID", "GATEWAY", "STATUS", "AMOUNT", "CREATED"}, "id", "gateway", "payment_status", "amount_total", "created_at"))
-	cmd.AddCommand(newAuthedAccountListCmd("affiliations", "/update/affiliations", []string{"ID", "EMAIL", "TOTAL_BILLED", "EARNINGS"}, "id", "email", "total_billed", "earnings"))
+	cmd.AddCommand(newAuthedAccountListCmd("transactions", "/update/transactions", []string{"ID", "GATEWAY", "REFERENCE", "STATUS", "AMOUNT", "CREATED"}, "id", "gateway", "gateway_reference", "payment_status", "amount_total", "created_at"))
+	cmd.AddCommand(newAuthedAccountListCmd("affiliations", "/update/affiliations", []string{"ID", "NAME", "EMAIL", "CITY", "COUNTRY", "QUALIFIED", "CREATED"}, "id", "name", "email", "geo_city", "geo_country_name", "affiliation_paid", "created_at"))
 	cmd.AddCommand(newAuthedAccountListCmd("audit-log", "/audit_log", []string{"ID", "METHOD", "PATH", "STATUS", "TIMESTAMP"}, "id", "http_method", "full_path", "response_code", "timestamp"))
 	cmd.AddCommand(newAuthedAccountListCmd("host-earnings", "/host_earnings_history", []string{"CREATED", "EARN/HOUR", "STORAGE/HOUR"}, "created_at", "earnings_per_hour", "storage_per_hour"))
 	cmd.AddCommand(newAccountEmailCheckCmd())
@@ -35,8 +36,9 @@ func newAccountCmd() *cobra.Command {
 
 func newPublicAccountGetCmd(use, endpoint string, headers []string) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   use,
-		Short: "Fetch public account metrics",
+		Use:     use,
+		Short:   "Fetch public account metrics",
+		Example: "  quickpod account " + use,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := context.Background()
 			var response map[string]any
@@ -55,8 +57,9 @@ func newPublicAccountGetCmd(use, endpoint string, headers []string) *cobra.Comma
 
 func newPublicAccountListCmd(use, endpoint string, headers []string, keys ...string) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   use,
-		Short: "Fetch public time-series data",
+		Use:     use,
+		Short:   "Fetch public time-series data",
+		Example: "  quickpod account " + use,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := context.Background()
 			var items []map[string]any
@@ -71,8 +74,9 @@ func newPublicAccountListCmd(use, endpoint string, headers []string, keys ...str
 
 func newAuthedAccountListCmd(use, endpoint string, headers []string, keys ...string) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   use,
-		Short: "Fetch authenticated account data",
+		Use:     use,
+		Short:   "Fetch authenticated account data",
+		Example: "  quickpod account " + use,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireAuth(); err != nil {
 				return err
@@ -91,8 +95,9 @@ func newAuthedAccountListCmd(use, endpoint string, headers []string, keys ...str
 func newAccountEmailCheckCmd() *cobra.Command {
 	var email string
 	cmd := &cobra.Command{
-		Use:   "email-check",
-		Short: "Check whether an email exists and still needs a password hash",
+		Use:     "email-check",
+		Short:   "Check whether an email exists and still needs a password hash",
+		Example: "  quickpod account email-check --email you@example.com",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if email == "" {
 				return fmt.Errorf("--email is required")
@@ -117,8 +122,9 @@ func newAccountContactCmd() *cobra.Command {
 	var company string
 	var message string
 	cmd := &cobra.Command{
-		Use:   "contact",
-		Short: "Send a contact request",
+		Use:     "contact",
+		Short:   "Send a contact request",
+		Example: "  quickpod account contact --name 'Jane Doe' --email jane@example.com --message 'Need help with billing'",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if name == "" || email == "" || message == "" {
 				return fmt.Errorf("--name, --email, and --message are required")
@@ -140,8 +146,9 @@ func newAccountContactCmd() *cobra.Command {
 
 func newAccountResetAPIKeyCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "reset-api-key",
-		Short: "Reset and fetch your user API key",
+		Use:     "reset-api-key",
+		Short:   "Reset and fetch your user API key",
+		Example: "  quickpod account reset-api-key",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireAuth(); err != nil {
 				return err
@@ -159,8 +166,9 @@ func newAccountResetAPIKeyCmd() *cobra.Command {
 
 func newAccountReverifyEmailCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "reverify-email",
-		Short: "Trigger another verification email",
+		Use:     "reverify-email",
+		Short:   "Trigger another verification email",
+		Example: "  quickpod account reverify-email",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireAuth(); err != nil {
 				return err

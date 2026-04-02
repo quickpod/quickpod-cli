@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -60,6 +61,154 @@ func boolString(value bool) string {
 		return "yes"
 	}
 	return "no"
+}
+
+func valueOrDash(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return "-"
+	}
+	return strings.TrimSpace(value)
+}
+
+func formatLocation(item map[string]any) string {
+	return valueOrDash(firstNonEmpty(app.StringValue(item["geolocation"]), app.StringValue(item["geoinfo"]), app.StringValue(item["location"])))
+}
+
+func formatPortRange(item map[string]any) string {
+	start := app.StringValue(item["open_port_start"])
+	end := app.StringValue(item["open_port_end"])
+	if start == "" && end == "" {
+		return "-"
+	}
+	if start == end || end == "" {
+		return start
+	}
+	if start == "" {
+		return end
+	}
+	return start + "-" + end
+}
+
+func formatAccess(item map[string]any) string {
+	ip := app.StringValue(item["public_ipaddr"])
+	ports := formatPortRange(item)
+	if ip == "" {
+		return ports
+	}
+	if ports == "-" || ports == "" {
+		return ip
+	}
+	return ip + ":" + ports
+}
+
+func orderedKeyValueRows(values map[string]any, preferredKeys ...string) [][]string {
+	rows := make([][]string, 0, len(values))
+	seen := make(map[string]struct{}, len(preferredKeys))
+	for _, key := range preferredKeys {
+		if _, ok := values[key]; !ok {
+			continue
+		}
+		rows = append(rows, []string{key, valueOrDash(app.StringValue(values[key]))})
+		seen[key] = struct{}{}
+	}
+	remaining := make([]string, 0, len(values))
+	for key := range values {
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		remaining = append(remaining, key)
+	}
+	sort.Strings(remaining)
+	for _, key := range remaining {
+		rows = append(rows, []string{key, valueOrDash(app.StringValue(values[key]))})
+	}
+	return rows
+}
+
+func displayValue(value any) string {
+	switch typed := value.(type) {
+	case nil:
+		return ""
+	case map[string]any, []any, []map[string]any:
+		payload, err := json.Marshal(typed)
+		if err != nil {
+			return fmt.Sprintf("%v", typed)
+		}
+		return string(payload)
+	default:
+		return app.StringValue(value)
+	}
+}
+
+func orderedDisplayKeyValueRows(values map[string]any, preferredKeys ...string) [][]string {
+	rows := make([][]string, 0, len(values))
+	seen := make(map[string]struct{}, len(preferredKeys))
+	for _, key := range preferredKeys {
+		if _, ok := values[key]; !ok {
+			continue
+		}
+		rows = append(rows, []string{key, valueOrDash(displayValue(values[key]))})
+		seen[key] = struct{}{}
+	}
+	remaining := make([]string, 0, len(values))
+	for key := range values {
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		remaining = append(remaining, key)
+	}
+	sort.Strings(remaining)
+	for _, key := range remaining {
+		rows = append(rows, []string{key, valueOrDash(displayValue(values[key]))})
+	}
+	return rows
+}
+
+func findMapByAny(items []map[string]any, target string, keys ...string) (map[string]any, bool) {
+	wanted := strings.TrimSpace(target)
+	if wanted == "" {
+		return nil, false
+	}
+	for _, item := range items {
+		for _, key := range keys {
+			if strings.EqualFold(strings.TrimSpace(app.StringValue(item[key])), wanted) {
+				return item, true
+			}
+		}
+	}
+	return nil, false
+}
+
+func parseIntSlice(values []string) ([]int, error) {
+	result := make([]int, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		parsed, err := strconv.Atoi(trimmed)
+		if err != nil {
+			return nil, fmt.Errorf("invalid integer value %q", value)
+		}
+		result = append(result, parsed)
+	}
+	return result, nil
+}
+
+func parseInt64Slice(values []string) ([]int64, error) {
+	result := make([]int64, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		parsed, err := strconv.ParseInt(trimmed, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid integer value %q", value)
+		}
+		result = append(result, parsed)
+	}
+	return result, nil
 }
 
 func flattenTypes(items []map[string]any) [][]string {
@@ -169,7 +318,9 @@ func offerRows(items []map[string]any, kind string, limit int) [][]string {
 			app.StringValue(item["hourly_cost"]),
 			app.StringValue(item["reliability"]),
 			boolString(app.BoolValue(item["verification"])),
-			app.Truncate(firstNonEmpty(app.StringValue(item["geolocation"]), app.StringValue(item["geoinfo"])), 22),
+			app.StringValue(item["machines_id"]),
+			formatPortRange(item),
+			app.Truncate(formatLocation(item), 22),
 		})
 	}
 	return rows
@@ -180,7 +331,7 @@ func genericRows(items []map[string]any, columns ...string) [][]string {
 	for _, item := range items {
 		row := make([]string, 0, len(columns))
 		for _, column := range columns {
-			row = append(row, app.StringValue(item[column]))
+			row = append(row, displayValue(item[column]))
 		}
 		rows = append(rows, row)
 	}

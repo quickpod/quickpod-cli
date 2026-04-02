@@ -5,26 +5,26 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-
-	"quickpod-cli/internal/app"
 )
 
 func newStoreCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "store",
-		Short: "Browse host stores and manage your own host store profile",
+		Use:     "store",
+		Short:   "Browse host stores and manage your own host store profile",
+		Example: "  quickpod store list\n  quickpod store upsert --name 'My GPU Lab' --slug my-gpu-lab",
 	}
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "list",
-		Short: "List public host stores",
+		Use:     "list",
+		Short:   "List public host stores",
+		Example: "  quickpod store list\n  quickpod --output json store list",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := context.Background()
 			var items []map[string]any
 			if err := getJSON(ctx, "/update/host_stores", false, &items); err != nil {
 				return err
 			}
-			return renderTableOrJSON(items, []string{"ID", "STORE", "SLUG", "USER", "UPDATED"}, genericRows(items, "id", "store_name", "slug", "user_id", "updated_at"))
+			return renderTableOrJSON(items, []string{"ID", "STORE", "SLUG", "USER", "AVATAR", "UPDATED"}, genericRows(items, "id", "store_name", "slug", "user_id", "avatar_url", "updated_at"))
 		},
 	})
 	cmd.AddCommand(newStoreUpsertCmd())
@@ -38,8 +38,9 @@ func newStoreUpsertCmd() *cobra.Command {
 	var avatarURL string
 
 	cmd := &cobra.Command{
-		Use:   "upsert",
-		Short: "Create or update your host store",
+		Use:     "upsert",
+		Short:   "Create or update your host store",
+		Example: "  quickpod store upsert --name 'My GPU Lab' --slug my-gpu-lab --avatar-url https://cdn.example/avatar.png",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireAuth(); err != nil {
 				return err
@@ -62,7 +63,7 @@ func newStoreUpsertCmd() *cobra.Command {
 			if err := postJSON(ctx, "/update/host_store", payload, true, &response); err != nil {
 				return err
 			}
-			return renderTableOrJSON(response, []string{"KEY", "VALUE"}, [][]string{{"id", app.StringValue(response["id"])}, {"store_name", app.StringValue(response["store_name"])}, {"slug", app.StringValue(response["slug"])}})
+			return renderTableOrJSON(response, []string{"KEY", "VALUE"}, orderedKeyValueRows(response, "id", "store_name", "slug", "avatar_url", "banner_url", "updated_at"))
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "store name")

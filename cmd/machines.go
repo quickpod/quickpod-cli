@@ -13,11 +13,13 @@ import (
 
 func newMachinesCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "machines",
-		Short: "Inspect and manage your machines and contracts",
+		Use:     "machines",
+		Short:   "Inspect and manage your machines and contracts",
+		Example: "  quickpod machines list --kind gpu --wide\n  quickpod machines get --kind gpu --id 14717\n  quickpod machines contracts\n  quickpod machines update-gpu --machine-id 14717 --listed true --gpu-price 101=0.79",
 	}
 
 	cmd.AddCommand(newMachinesListCmd())
+	cmd.AddCommand(newMachinesGetCmd())
 	cmd.AddCommand(newMachinesContractsCmd())
 	cmd.AddCommand(newMachinesUpdateGPUCmd())
 	cmd.AddCommand(newMachinesUpdateCPUCmd())
@@ -28,9 +30,11 @@ func newMachinesCmd() *cobra.Command {
 
 func newMachinesListCmd() *cobra.Command {
 	var kind string
+	var wide bool
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List your GPU or CPU machines",
+		Use:     "list",
+		Short:   "List your GPU or CPU machines",
+		Example: "  quickpod machines list --kind gpu\n  quickpod machines list --kind cpu --wide\n  quickpod machines list --kind cpu --output json",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireAuth(); err != nil {
 				return err
@@ -46,28 +50,90 @@ func newMachinesListCmd() *cobra.Command {
 			}
 			rows := make([][]string, 0, len(items))
 			for _, item := range items {
+				cpuCount := firstNonEmpty(app.StringValue(item["cpus"]), app.StringValue(item["cpu_cores"]))
+				if wide {
+					rows = append(rows, []string{
+						app.StringValue(item["id"]),
+						app.Truncate(app.StringValue(item["hostname"]), 24),
+						app.StringValue(item["machine_type"]),
+						app.StringValue(item["num_gpus"]),
+						cpuCount,
+						boolString(app.BoolValue(item["listed"])),
+						boolString(app.BoolValue(item["online"])),
+						boolString(app.BoolValue(item["verification"])),
+						app.StringValue(item["reliability"]),
+						formatLocation(item),
+						valueOrDash(app.StringValue(item["public_ipaddr"])),
+						valueOrDash(app.StringValue(item["max_duration"])),
+						valueOrDash(app.StringValue(item["current_rentals_resident"])),
+					})
+					continue
+				}
 				rows = append(rows, []string{
 					app.StringValue(item["id"]),
 					app.Truncate(app.StringValue(item["hostname"]), 24),
 					app.StringValue(item["machine_type"]),
 					app.StringValue(item["num_gpus"]),
-					app.StringValue(item["cpu_cores"]),
+					cpuCount,
 					boolString(app.BoolValue(item["listed"])),
 					boolString(app.BoolValue(item["online"])),
-					app.StringValue(item["public_ipaddr"]),
+					boolString(app.BoolValue(item["verification"])),
+					app.StringValue(item["reliability"]),
+					formatLocation(item),
+					valueOrDash(app.StringValue(item["public_ipaddr"])),
 				})
 			}
-			return renderTableOrJSON(items, []string{"ID", "HOSTNAME", "TYPE", "GPUS", "CPUS", "LISTED", "ONLINE", "IP"}, rows)
+			if wide {
+				return renderTableOrJSON(items, []string{"ID", "HOSTNAME", "TYPE", "GPUS", "CPUS", "LISTED", "ONLINE", "VERIFIED", "RELIABILITY", "LOCATION", "IP", "MAX_HOURS", "ACTIVE"}, rows)
+			}
+			return renderTableOrJSON(items, []string{"ID", "HOSTNAME", "TYPE", "GPUS", "CPUS", "LISTED", "ONLINE", "VERIFIED", "RELIABILITY", "LOCATION", "IP"}, rows)
 		},
 	}
 	cmd.Flags().StringVar(&kind, "kind", "gpu", "machine kind: gpu or cpu")
+	cmd.Flags().BoolVar(&wide, "wide", false, "show additional machine columns")
+	return cmd
+}
+
+func newMachinesGetCmd() *cobra.Command {
+	var kind string
+	var machineRef string
+	cmd := &cobra.Command{
+		Use:     "get",
+		Short:   "Describe one GPU or CPU machine by numeric ID or hostname",
+		Example: "  quickpod machines get --kind gpu --id 14717\n  quickpod machines get --kind cpu --id node-01",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireAuth(); err != nil {
+				return err
+			}
+			if strings.TrimSpace(machineRef) == "" {
+				return fmt.Errorf("--id is required")
+			}
+			ctx := context.Background()
+			endpoint := "/mymachines"
+			if kind == "cpu" {
+				endpoint = "/mymachines_cpu"
+			}
+			var items []map[string]any
+			if err := getJSON(ctx, endpoint, true, &items); err != nil {
+				return err
+			}
+			item, ok := findMapByAny(items, machineRef, "id", "hostname")
+			if !ok {
+				return fmt.Errorf("machine %q was not found in your %s inventory", machineRef, kind)
+			}
+			return renderTableOrJSON(item, []string{"KEY", "VALUE"}, orderedDisplayKeyValueRows(item, "id", "hostname", "machine_type", "num_gpus", "cpus", "cpu_cores", "listed", "online", "verification", "reliability", "public_ipaddr", "geolocation", "geoinfo", "max_duration", "current_rentals_resident"))
+		},
+	}
+	cmd.Flags().StringVar(&kind, "kind", "gpu", "machine kind: gpu or cpu")
+	cmd.Flags().StringVar(&machineRef, "id", "", "machine numeric ID or hostname")
 	return cmd
 }
 
 func newMachinesContractsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "contracts",
-		Short: "List your machine contracts",
+		Use:     "contracts",
+		Short:   "List your machine contracts",
+		Example: "  quickpod machines contracts\n  quickpod --output json machines contracts",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireAuth(); err != nil {
 				return err
@@ -86,9 +152,11 @@ func newMachinesContractsCmd() *cobra.Command {
 					app.StringValue(item["earn_hour"]),
 					app.StringValue(item["earn_day"]),
 					app.StringValue(item["current_rentals_resident"]),
+					boolString(app.BoolValue(item["online"])),
+					boolString(app.BoolValue(item["listed"])),
 				})
 			}
-			return renderTableOrJSON(items, []string{"ID", "HOSTNAME", "TYPE", "EARN/HOUR", "EARN/DAY", "ACTIVE"}, rows)
+			return renderTableOrJSON(items, []string{"ID", "HOSTNAME", "TYPE", "EARN/HOUR", "EARN/DAY", "ACTIVE", "ONLINE", "LISTED"}, rows)
 		},
 	}
 	return cmd
@@ -104,8 +172,9 @@ func newMachinesUpdateGPUCmd() *cobra.Command {
 	var gpuPrices []string
 
 	cmd := &cobra.Command{
-		Use:   "update-gpu",
-		Short: "Update a GPU machine listing",
+		Use:     "update-gpu",
+		Short:   "Update a GPU machine listing",
+		Example: "  quickpod machines update-gpu --machine-id 14717 --listed true --min-gpu 1 --max-duration 24 --storage-cost 0.05 --inet-down-cost 0 --gpu-price 101=0.79",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireAuth(); err != nil {
 				return err
@@ -123,19 +192,19 @@ func newMachinesUpdateGPUCmd() *cobra.Command {
 			}
 
 			payload := map[string]any{
-				"listed":                 listedValue,
-				"min_gpu":                minGPU,
-				"max_duration":           maxDuration,
-				"listed_storage_cost":    storageCost,
-				"listed_inet_down_cost":  inetDownCost,
-				"gpus_listing":           gpusListing,
+				"listed":                listedValue,
+				"min_gpu":               minGPU,
+				"max_duration":          maxDuration,
+				"listed_storage_cost":   storageCost,
+				"listed_inet_down_cost": inetDownCost,
+				"gpus_listing":          gpusListing,
 			}
 			ctx := context.Background()
 			var response map[string]any
 			if err := putJSON(ctx, fmt.Sprintf("/update/listmachines/%d", machineID), payload, true, &response); err != nil {
 				return err
 			}
-			return renderTableOrJSON(response, []string{"KEY", "VALUE"}, [][]string{{"result", app.StringValue(response["result"])}})
+			return renderTableOrJSON(response, []string{"KEY", "VALUE"}, orderedKeyValueRows(response, "result"))
 		},
 	}
 	cmd.Flags().IntVar(&machineID, "machine-id", 0, "machine ID")
@@ -156,8 +225,9 @@ func newMachinesUpdateCPUCmd() *cobra.Command {
 	var storageCost string
 
 	cmd := &cobra.Command{
-		Use:   "update-cpu",
-		Short: "Update a CPU machine listing",
+		Use:     "update-cpu",
+		Short:   "Update a CPU machine listing",
+		Example: "  quickpod machines update-cpu --machine-id 14718 --listed true --max-duration 24 --cpu-cost 0.18 --storage-cost 0.03",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireAuth(); err != nil {
 				return err
@@ -170,18 +240,18 @@ func newMachinesUpdateCPUCmd() *cobra.Command {
 				return err
 			}
 			payload := map[string]any{
-				"listed":               listedValue,
-				"max_duration":         maxDuration,
-				"listed_cpu_cost":      cpuCost,
-				"listed_storage_cost":  storageCost,
-				"gpus_listing":         []string{},
+				"listed":              listedValue,
+				"max_duration":        maxDuration,
+				"listed_cpu_cost":     cpuCost,
+				"listed_storage_cost": storageCost,
+				"gpus_listing":        []string{},
 			}
 			ctx := context.Background()
 			var response map[string]any
 			if err := putJSON(ctx, fmt.Sprintf("/update/listmachines_cpu/%d", machineID), payload, true, &response); err != nil {
 				return err
 			}
-			return renderTableOrJSON(response, []string{"KEY", "VALUE"}, [][]string{{"result", app.StringValue(response["result"])}})
+			return renderTableOrJSON(response, []string{"KEY", "VALUE"}, orderedKeyValueRows(response, "result"))
 		},
 	}
 	cmd.Flags().IntVar(&machineID, "machine-id", 0, "machine ID")
@@ -196,8 +266,9 @@ func newMachinesPrivilegedCmd() *cobra.Command {
 	var machineID int
 	var allow string
 	cmd := &cobra.Command{
-		Use:   "privileged",
-		Short: "Allow or block privileged pod access on a machine",
+		Use:     "privileged",
+		Short:   "Allow or block privileged pod access on a machine",
+		Example: "  quickpod machines privileged --machine-id 14717 --allow true",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireAuth(); err != nil {
 				return err
@@ -214,7 +285,7 @@ func newMachinesPrivilegedCmd() *cobra.Command {
 			if err := postJSON(ctx, "/update/machine_allow_privileged_access", map[string]any{"machine_id": machineID, "allow_priveleged": allowValue}, true, &response); err != nil {
 				return err
 			}
-			return renderTableOrJSON(response, []string{"KEY", "VALUE"}, [][]string{{"result", firstNonEmpty(app.StringValue(response["result"]), "updated")}})
+			return renderTableOrJSON(response, []string{"KEY", "VALUE"}, orderedKeyValueRows(response, "result"))
 		},
 	}
 	cmd.Flags().IntVar(&machineID, "machine-id", 0, "machine ID")
@@ -234,8 +305,8 @@ func parseGPUPriceFlags(entries []string) ([]map[string]any, error) {
 			return nil, fmt.Errorf("invalid gpu id in %q", entry)
 		}
 		list = append(list, map[string]any{
-			"id":               gpuID,
-			"listed_gpu_cost":  strings.TrimSpace(parts[1]),
+			"id":              gpuID,
+			"listed_gpu_cost": strings.TrimSpace(parts[1]),
 		})
 	}
 	return list, nil
