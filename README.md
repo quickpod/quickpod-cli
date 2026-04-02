@@ -31,6 +31,23 @@ go mod tidy
 go build -o quickpod
 ```
 
+Version scheme:
+- Tagged or release builds should use semantic versions such as `v0.1.0`, `v0.1.1`, `v0.2.0`.
+- Local untagged builds default to `v0.1.0-dev+<commit>` and append `.dirty` when built from a modified worktree.
+- `quickpod version --verbose` prints the version plus commit and build timestamp when available.
+
+Release build example:
+
+```bash
+VERSION=v0.1.0
+COMMIT=$(git rev-parse --short HEAD)
+BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+go build \
+	-ldflags "-X quickpod-cli/internal/version.Version=${VERSION} -X quickpod-cli/internal/version.Commit=${COMMIT} -X quickpod-cli/internal/version.BuildDate=${BUILD_DATE}" \
+	-o quickpod
+```
+
 ## Authentication
 
 The CLI stores its auth credential in:

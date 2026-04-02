@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"quickpod-cli/internal/app"
+	"quickpod-cli/internal/version"
 )
 
 var (
@@ -36,6 +37,9 @@ user storage volumes, host store metadata, and user security operations.`,
 	quickpod storage volumes list
 	quickpod account affiliations`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		if shouldSkipRuntimeInit(cmd) {
+			return nil
+		}
 		return initRuntime()
 	},
 	SilenceUsage:  true,
@@ -74,10 +78,29 @@ func init() {
 	rootCmd.AddCommand(&cobra.Command{
 		Use:   "version",
 		Short: "Print the CLI version",
+		Args:  cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Fprintln(os.Stdout, "quickpod-cli dev")
+			verbose, _ := cmd.Flags().GetBool("verbose")
+			if verbose {
+				fmt.Fprintln(os.Stdout, version.Multiline())
+				return
+			}
+			fmt.Fprintln(os.Stdout, "quickpod-cli "+version.String())
 		},
 	})
+	rootCmd.Commands()[len(rootCmd.Commands())-1].Flags().Bool("verbose", false, "print version, commit, and build metadata")
+}
+
+func shouldSkipRuntimeInit(cmd *cobra.Command) bool {
+	if cmd == nil {
+		return false
+	}
+	switch cmd.Name() {
+	case "version", "completion":
+		return true
+	default:
+		return false
+	}
 }
 
 func initRuntime() error {
